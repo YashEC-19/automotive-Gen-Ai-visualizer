@@ -15,7 +15,7 @@ groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 HF_API_KEY = os.getenv("HF_API_KEY")
 
 st.set_page_config(
-    page_title="Automotive Concept Visualizer",
+    page_title="Automotive Concept AI",
     page_icon="🚗",
     layout="wide"
 )
@@ -23,205 +23,269 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color: #080818; color: #f0f0f0; }
+.stApp { background-color: #080818; }
 
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-    background-color: #0a0a0a;
-    color: #f0f0f0;
+.hero {
+    width: 100%;
+    height: 460px;
+    border-radius: 24px;
+    overflow: hidden;
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 2rem;
 }
-.stApp { background-color: #0a0a0a; }
-.main-hero {
+.hero-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: brightness(0.55) saturate(1.2);
+}
+.hero-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(to bottom, rgba(8,8,24,0.05) 0%, rgba(8,8,24,0.82) 100%);
+    z-index: 1;
+    border-radius: 24px;
+}
+.hero-content {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%;
+    z-index: 2;
     text-align: center;
-    padding: 3rem 0 1rem 0;
+    padding: 2rem;
 }
-.main-title {
-    font-size: 3.5rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #E8401C, #ff6b47);
+.logo {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #38bdf8, #f472b6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 0.5rem;
 }
-.main-subtitle {
-    font-size: 1.1rem;
-    color: #888;
-    margin-bottom: 2rem;
+.main-title {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.1;
+    margin-bottom: 0.3rem;
 }
-.config-card {
-    background: #141414;
-    border: 1px solid #222;
-    border-radius: 16px;
-    padding: 1.5rem;
+.main-title span {
+    background: linear-gradient(135deg, #38bdf8, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.main-sub {
+    font-size: 0.82rem;
+    color: #555;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+.examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
     margin-bottom: 1.5rem;
 }
-.config-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #E8401C;
-    margin-bottom: 1rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+.example {
+    font-size: 0.73rem;
+    color: #555;
+    border: 1px solid #1e1e3a;
+    border-radius: 20px;
+    padding: 5px 14px;
+    background: #0f0f24;
+    font-family: 'Inter', sans-serif;
 }
 .section-header {
-    font-size: 1.2rem;
+    font-size: 0.68rem;
     font-weight: 600;
-    color: #E8401C;
-    border-bottom: 1px solid #222;
-    padding-bottom: 0.5rem;
+    background: linear-gradient(135deg, #38bdf8, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    letter-spacing: 3px;
     margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e1e3a;
 }
 .description-box {
-    background: #141414;
-    border: 1px solid #222;
-    border-radius: 12px;
+    background: #0f0f24;
+    border: 1px solid #1e1e3a;
+    border-radius: 14px;
     padding: 1.5rem;
-    color: #ccc;
-    font-size: 0.92rem;
-    line-height: 1.8;
-}
-.spec-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1rem;
-}
-.spec-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #1e1e1e;
-    font-size: 0.9rem;
-    color: #ccc;
-}
-.spec-table td:first-child {
     color: #888;
-    width: 40%;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 0.9rem;
+    line-height: 1.9;
+    margin-bottom: 1rem;
 }
-.stars { color: #E8401C; font-size: 1rem; }
-.badge {
-    display: inline-block;
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 0.75rem;
-    color: #aaa;
-    margin: 2px;
+.description-box ul { padding-left: 1.2rem; margin: 0; }
+.description-box ul li { margin-bottom: 0.6rem; color: #999; }
+.description-box ul li strong { color: #ccc; }
+.spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+.spec-item { background: #0f0f24; border: 1px solid #1e1e3a; border-radius: 10px; padding: 12px 14px; }
+.spec-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 1.5px; color: #444; margin-bottom: 4px; }
+.spec-value { font-size: 0.92rem; font-weight: 500; color: #ccc; }
+.rating-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #0d0d20; }
+.rating-label { font-size: 0.72rem; color: #444; text-transform: uppercase; letter-spacing: 1px; }
+.stars { background: linear-gradient(135deg, #38bdf8, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 2px; }
+.badge { display: inline-block; background: #0f0f24; border: 1px solid #1e1e3a; border-radius: 20px; padding: 3px 10px; font-size: 0.7rem; color: #444; margin: 2px; }
+.image-frame { border: 1px solid #1e1e3a; border-radius: 16px; overflow: hidden; }
+hr { border: none; border-top: 1px solid #1e1e3a; margin: 2rem 0; }
+
+div[data-testid="stTextInput"] > div > div > input {
+    background-color: #0f0f24 !important;
+    div[data-testid="stTextInput"] > div > div > div {
+    display: none !important;
 }
-.stButton>button {
-    background: linear-gradient(135deg, #E8401C, #c0320f);
-    color: white;
-    font-size: 1rem;
-    font-weight: 600;
-    border-radius: 10px;
-    padding: 0.7rem 2rem;
-    border: none;
-    width: 100%;
-    letter-spacing: 0.5px;
-    transition: all 0.3s ease;
-}
-.stButton>button:hover {
-    background: linear-gradient(135deg, #ff5533, #E8401C);
-    transform: translateY(-1px);
-}
-div[data-testid="stSelectbox"] label,
-div[data-testid="stTextInput"] label {
-    color: #888 !important;
-    font-size: 0.85rem !important;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.stSelectbox > div > div,
-.stTextInput > div > div > input {
-    background-color: #1a1a1a !important;
-    border: 1px solid #333 !important;
+div[data-testid="stTextInput"] > div > div {
+    border: none !important;
+    box-shadow: none !important;
+    border: 1.5px solid #1e1e3a !important;
+    border-radius: 50px !important;
     color: #f0f0f0 !important;
-    border-radius: 8px !important;
+    font-size: 1rem !important;
+    padding: 0.8rem 1.8rem !important;
+    height: 58px !important;
+    font-family: 'Inter', sans-serif !important;
+    caret-color: #38bdf8 !important;
 }
-.divider {
-    border: none;
-    border-top: 1px solid #1e1e1e;
-    margin: 2rem 0;
+div[data-testid="stTextInput"] > div > div > input:focus {
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 0 3px rgba(56,189,248,0.1) !important;
 }
+div[data-testid="stTextInput"] > div > div > input::placeholder {
+    color: #2a2a4a !important;
+}
+div[data-testid="stTextInput"] label { display: none !important; }
+div[data-testid="stTextInput"] small { display: none !important; }
+[data-testid="InputInstructions"] { display: none !important; }
+.st-emotion-cache-1aq44bt { display: none !important; }
+iframe { border: none !important; }
+div[class*="InputInstructions"] { display: none !important; }
+p[class*="instructions"] { display: none !important; }
+
+.stButton > button {
+    background: linear-gradient(135deg, #38bdf8, #f472b6) !important;
+    color: white !important;
+    border-radius: 50px !important;
+    border: none !important;
+    padding: 0.7rem 2rem !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+    width: 100% !important;
+}
+.stButton > button:hover { opacity: 0.9 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
-<div class="main-hero">
-    <div class="main-title">AUTOMOTIVE CONCEPT AI</div>
-    <div class="main-subtitle">Transform your vision into stunning concept designs using Generative AI</div>
+<div class="hero">
+    <img class="hero-img" src="https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=800&q=80"/>
+    <img class="hero-img" src="https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=800&q=80"/>
+    <img class="hero-img" src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80"/>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+        <div class="logo">Automotive Concept AI</div>
+        <div class="main-title">Design any car. <span>Instantly.</span></div>
+        <div class="main-sub">Describe your dream car and let AI bring it to life</div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown('<hr class="divider">', unsafe_allow_html=True)
+col_a, col_b, col_c = st.columns([1, 2, 1])
+with col_b:
+    prompt = st.text_input("", placeholder="e.g. A futuristic blue hypercar with gull-wing doors...", label_visibility="collapsed")
 
-st.markdown('<div class="config-card"><div class="config-title">Configure Your Concept</div>', unsafe_allow_html=True)
+st.markdown("""
+<div class="examples">
+    <span class="example">Futuristic hypercar</span>
+    <span class="example">Italian sports car</span>
+    <span class="example">Cyberpunk SUV</span>
+    <span class="example">British luxury sedan</span>
+    <span class="example">Japanese coupe</span>
+</div>
+""", unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    body_type = st.selectbox("Body Type", ["Sports Car", "SUV", "Sedan", "Hypercar", "Pickup Truck", "Convertible", "Coupe", "Electric Van"])
-    era = st.selectbox("Design Era", ["Futuristic 2050", "Neo-Retro", "Modern 2025", "Cyberpunk", "Classic Revival", "Concept Show Car"])
+col_x, col_y, col_z = st.columns([1, 2, 1])
+with col_y:
+    generate = st.button("Generate Concept")
 
-with col2:
-    color_theme = st.selectbox("Color Theme", ["Midnight Black", "Arctic White", "Deep Red", "Electric Blue", "Matte Gray", "Champagne Gold", "Neon Green"])
-    fuel_type = st.selectbox("Powertrain", ["Full Electric", "Hydrogen Fuel Cell", "Hybrid", "V8 Petrol", "V12 Supercharged", "Solar Assisted EV"])
-
-with col3:
-    mood = st.selectbox("Design Mood", ["Aggressive & Sporty", "Luxury & Elegant", "Rugged & Tough", "Minimalist & Clean", "Futuristic & Bold", "Classic & Timeless"])
-    brand_style = st.selectbox("Brand Inspiration", ["Original Design", "German Precision", "Italian Passion", "Japanese Minimalism", "American Muscle", "British Luxury"])
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-extra_prompt = st.text_input("Additional Details (optional)", placeholder="e.g. gull-wing doors, transparent hood, holographic dashboard...")
-
-generate = st.button("Generate Concept")
-
-st.markdown('<hr class="divider">', unsafe_allow_html=True)
+st.markdown("<hr>", unsafe_allow_html=True)
 
 def stars(n):
-    return "★" * n + "☆" * (5 - n)
+    try:
+        return "★" * int(n) + "☆" * (5 - int(n))
+    except:
+        return "★★★★☆"
 
-def generate_pdf(prompt, description, specs, image):
+def clean(text):
+    return str(text).encode('latin-1', 'replace').decode('latin-1')
+
+def format_description(text):
+    if isinstance(text, list):
+        text = "\n".join([str(i) for i in text])
+    text = str(text)
+    lines = [l.strip() for l in text.replace("**", "").split("\n") if l.strip()]
+    items = ""
+    for line in lines:
+        line = line.lstrip("-•*123456789.").strip()
+        if ":" in line:
+            parts = line.split(":", 1)
+            items += f"<li><strong>{parts[0].strip()}:</strong> {parts[1].strip()}</li>"
+        elif line:
+            items += f"<li>{line}</li>"
+    return f"<ul>{items}</ul>" if items else f"<p>{text}</p>"
+
+def generate_pdf(prompt, description, blueprint, engineering, specs, image):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 22)
-    pdf.set_text_color(232, 64, 28)
+    pdf.set_text_color(56, 189, 248)
     pdf.cell(0, 12, "AUTOMOTIVE CONCEPT AI", ln=True, align="C")
-    pdf.set_font("Helvetica", "", 11)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 7, "Powered by Generative AI", ln=True, align="C")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 7, "Generative Design Studio", ln=True, align="C")
     pdf.ln(4)
-    pdf.set_draw_color(232, 64, 28)
+    pdf.set_draw_color(56, 189, 248)
     pdf.set_line_width(0.8)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(6)
-    pdf.set_font("Helvetica", "B", 13)
-    pdf.set_text_color(232, 64, 28)
-    pdf.cell(0, 9, "Concept Configuration", ln=True)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_text_color(50, 50, 50)
-    pdf.multi_cell(0, 6, prompt)
-    pdf.ln(4)
-    pdf.set_font("Helvetica", "B", 13)
-    pdf.set_text_color(232, 64, 28)
-    pdf.cell(0, 9, "AI Description", ln=True)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_text_color(50, 50, 50)
-    clean = description.encode('latin-1', 'replace').decode('latin-1')
-    pdf.multi_cell(0, 6, clean)
-    pdf.ln(4)
+    for section_title, content in [
+        ("Concept Prompt", prompt),
+        ("Description", description),
+        ("Technical Blueprint", blueprint),
+        ("Engineering Notes", engineering),
+    ]:
+        if content:
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.set_text_color(56, 189, 248)
+            pdf.cell(0, 9, section_title, ln=True)
+            pdf.set_font("Helvetica", "", 10)
+            pdf.set_text_color(60, 60, 60)
+            pdf.multi_cell(0, 6, clean(content))
+            pdf.ln(3)
     if specs:
-        pdf.set_font("Helvetica", "B", 13)
-        pdf.set_text_color(232, 64, 28)
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.set_text_color(56, 189, 248)
         pdf.cell(0, 9, "Specifications", ln=True)
         pdf.set_font("Helvetica", "", 10)
-        pdf.set_text_color(50, 50, 50)
-        for key, val in specs.items():
-            pdf.cell(60, 7, str(key), border=0)
-            pdf.cell(0, 7, str(val), border=0, ln=True)
-    pdf.ln(4)
-    pdf.set_font("Helvetica", "B", 13)
-    pdf.set_text_color(232, 64, 28)
+        pdf.set_text_color(60, 60, 60)
+        for k, v in specs.items():
+            pdf.cell(70, 7, clean(k))
+            pdf.cell(0, 7, clean(v), ln=True)
+        pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(56, 189, 248)
     pdf.cell(0, 9, "Visual Concept", ln=True)
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
         image.save(tmp.name)
@@ -231,121 +295,148 @@ def generate_pdf(prompt, description, specs, image):
         return tmp_pdf.name
 
 if generate:
-    full_prompt = f"{body_type} | {era} | {color_theme} | {fuel_type} | {mood} | {brand_style}"
-    if extra_prompt:
-        full_prompt += f" | Extra: {extra_prompt}"
+    if not prompt:
+        st.warning("Please type your car concept in the search bar above!")
+    else:
+        generated_image = None
+        description = ""
+        blueprint = ""
+        engineering = ""
+        specs = {}
 
-    col_left, col_right = st.columns([1, 1])
+        col_left, col_right = st.columns([1, 1], gap="large")
 
-    with col_left:
-        st.markdown('<p class="section-header">AI Description</p>', unsafe_allow_html=True)
-        with st.spinner("Generating concept..."):
-            system_msg = """You are a world-class automotive concept designer and engineer. 
-When given a car concept configuration, you must respond ONLY with a valid JSON object in this exact format:
+        with col_right:
+            st.markdown('<div class="section-header">Visual Concept</div>', unsafe_allow_html=True)
+            with st.spinner("Rendering visual..."):
+                image_prompt = (
+                    f"RAW photo, {prompt}, "
+                    f"automotive photography, shot on Canon EOS R5, 85mm lens, "
+                    f"natural lighting, real car, hyperrealistic, photographic, "
+                    f"8k uhd, dslr, high quality, film grain, Fujifilm XT3, "
+                    f"sharp focus, realistic skin texture, no CGI, no illustration"
+                )
+                hf_response = requests.post(
+                    "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0",
+                    headers={"Authorization": f"Bearer {HF_API_KEY}"},
+                    json={"inputs": image_prompt, "wait_for_model": True},
+                    timeout=120
+                )
+                if hf_response.status_code == 200:
+                    try:
+                        generated_image = Image.open(BytesIO(hf_response.content))
+                        st.markdown('<div class="image-frame">', unsafe_allow_html=True)
+                        st.image(generated_image, use_container_width=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"Could not load image: {e}")
+                else:
+                    st.error(f"Image generation failed: {hf_response.text}")
+
+        with col_left:
+            st.markdown('<div class="section-header">AI Description</div>', unsafe_allow_html=True)
+            with st.spinner("Thinking..."):
+                system_msg = """You are the world's most renowned automotive concept designer and chief engineer, combining the vision of Pininfarina, the precision of AMG, and the innovation of Tesla.
+
+When given a car concept, you MUST respond ONLY with a valid JSON object. No extra text, no markdown, no explanation — ONLY JSON.
+
 {
-  "description": "A detailed 150-200 word description of the car concept covering design language, exterior, interior, and overall feel",
-  "performance_rating": <number 1-5>,
-  "design_rating": <number 1-5>,
-  "tech_rating": <number 1-5>,
-  "comfort_rating": <number 1-5>,
-  "value_rating": <number 1-5>,
-  "top_speed": "e.g. 320 km/h",
-  "acceleration": "e.g. 0-100 in 2.8s",
-  "range": "e.g. 650 km",
-  "power": "e.g. 750 HP",
-  "price_estimate": "e.g. $180,000 - $220,000",
-  "target_audience": "e.g. Performance enthusiasts aged 30-45"
-}
-Return ONLY the JSON, no extra text."""
+  "description": "Write exactly 6 bullet points, each on a new line starting with '- Label: description'. Labels must be: Design, Exterior, Interior, Performance, Technology, Feel. Each point must be vivid, technical and inspiring — 2 sentences each.",
+  "blueprint": "Write exactly 5 bullet points, each on a new line starting with '- Label: description'. Labels must be: Chassis, Suspension, Drivetrain, Aerodynamics, Frame. Be precise with materials and engineering terms.",
+  "engineering": "Write exactly 5 bullet points, each on a new line starting with '- Label: description'. Labels must be: Brakes, Steering, Cooling, Tyres, Safety. Include specific technical details.",
+  "performance_rating": <integer 1-5>,
+  "design_rating": <integer 1-5>,
+  "tech_rating": <integer 1-5>,
+  "comfort_rating": <integer 1-5>,
+  "value_rating": <integer 1-5>,
+  "top_speed": "specific value with unit e.g. 342 km/h",
+  "acceleration": "specific value e.g. 0-100 in 2.4s",
+  "range": "specific value e.g. 720 km",
+  "power": "specific value e.g. 850 HP",
+  "torque": "specific value e.g. 1,100 Nm",
+  "weight": "specific value e.g. 1,680 kg",
+  "dimensions": "L x W x H x Wheelbase e.g. 4,920 x 2,080 x 1,280 x 2,950 mm",
+  "price_estimate": "specific range e.g. $240,000 - $290,000",
+  "target_audience": "specific description e.g. Ultra-high-net-worth performance enthusiasts aged 35-55"
+}"""
 
-            response = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": system_msg},
-                    {"role": "user", "content": f"Design a concept car: {full_prompt}"}
-                ],
-                temperature=0.8,
-                max_tokens=1000
-            )
 
-            raw = response.choices[0].message.content.strip()
-            try:
-                raw = raw[raw.find("{"):raw.rfind("}")+1]
-                data = json.loads(raw)
-            except:
-                data = {"description": raw}
+                response = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.8,
+                    max_tokens=1500
+                )
 
-            description = data.get("description", "")
-            st.markdown(f'<div class="description-box">{description}</div>', unsafe_allow_html=True)
+                raw = response.choices[0].message.content.strip()
+                try:
+                    raw = raw[raw.find("{"):raw.rfind("}")+1]
+                    data = json.loads(raw)
+                except:
+                    data = {"description": raw}
 
-            st.markdown('<p class="section-header" style="margin-top:1.5rem">Specifications</p>', unsafe_allow_html=True)
-            specs = {
-                "Top Speed": data.get("top_speed", "N/A"),
-                "Acceleration": data.get("acceleration", "N/A"),
-                "Range / Tank": data.get("range", "N/A"),
-                "Power Output": data.get("power", "N/A"),
-                "Estimated Price": data.get("price_estimate", "N/A"),
-                "Target Audience": data.get("target_audience", "N/A"),
-            }
-            rows = "".join([f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in specs.items()])
+                description = data.get("description", "")
+                blueprint = data.get("blueprint", "")
+                engineering = data.get("engineering", "")
 
-            ratings = {
-                "Performance": data.get("performance_rating", 4),
-                "Design": data.get("design_rating", 4),
-                "Technology": data.get("tech_rating", 4),
-                "Comfort": data.get("comfort_rating", 3),
-                "Value": data.get("value_rating", 3),
-            }
-            rating_rows = "".join([
-                f'<tr><td>{k}</td><td><span class="stars">{stars(int(v))}</span></td></tr>'
-                for k, v in ratings.items()
-            ])
+                st.markdown(f'<div class="description-box">{format_description(description)}</div>', unsafe_allow_html=True)
 
-            st.markdown(f"""
-            <table class="spec-table">
-                {rows}
-                <tr><td colspan="2" style="padding-top:12px; color:#E8401C; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.5px;">Ratings</td></tr>
-                {rating_rows}
-            </table>
-            """, unsafe_allow_html=True)
+                specs = {
+                    "Top Speed": data.get("top_speed", "N/A"),
+                    "0-100 km/h": data.get("acceleration", "N/A"),
+                    "Range": data.get("range", "N/A"),
+                    "Power": data.get("power", "N/A"),
+                    "Torque": data.get("torque", "N/A"),
+                    "Weight": data.get("weight", "N/A"),
+                    "Dimensions": data.get("dimensions", "N/A"),
+                    "Price": data.get("price_estimate", "N/A"),
+                }
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            tags = [body_type, era, fuel_type, mood]
-            tag_html = "".join([f'<span class="badge">{t}</span>' for t in tags])
-            st.markdown(tag_html, unsafe_allow_html=True)
+                st.markdown('<div class="section-header" style="margin-top:1.5rem">Specifications</div>', unsafe_allow_html=True)
+                spec_html = "".join([
+                    f'<div class="spec-item"><div class="spec-label">{k}</div><div class="spec-value">{v}</div></div>'
+                    for k, v in specs.items()
+                ])
+                st.markdown(f'<div class="spec-grid">{spec_html}</div>', unsafe_allow_html=True)
 
-    with col_right:
-        st.markdown('<p class="section-header">Visual Concept</p>', unsafe_allow_html=True)
-        with st.spinner("Rendering visual..."):
-            image_prompt = (
-                f"A stunning photorealistic concept car design, {body_type}, {era} design style, "
-                f"{color_theme} color, {mood} aesthetic, {brand_style} influence, "
-                f"professional automotive photography, studio lighting, clean background, "
-                f"ultra detailed, 8k quality, showroom render"
-            )
-            if extra_prompt:
-                image_prompt += f", {extra_prompt}"
+                ratings = {
+                    "Performance": data.get("performance_rating", 4),
+                    "Design": data.get("design_rating", 4),
+                    "Technology": data.get("tech_rating", 4),
+                    "Comfort": data.get("comfort_rating", 3),
+                    "Value": data.get("value_rating", 3),
+                }
+                st.markdown('<div class="section-header" style="margin-top:1.5rem">Ratings</div>', unsafe_allow_html=True)
+                rating_html = "".join([
+                    f'<div class="rating-row"><span class="rating-label">{k}</span><span class="stars">{stars(v)}</span></div>'
+                    for k, v in ratings.items()
+                ])
+                st.markdown(f'<div class="description-box" style="padding:0.5rem 1rem">{rating_html}</div>', unsafe_allow_html=True)
 
-            hf_response = requests.post(
-                "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0",
-                headers={"Authorization": f"Bearer {HF_API_KEY}"},
-                json={"inputs": image_prompt, "wait_for_model": True}
-            )
-            if hf_response.status_code == 200:
-                generated_image = Image.open(BytesIO(hf_response.content))
-                st.image(generated_image, use_container_width=True)
-            else:
-                st.error(f"Image generation failed: {hf_response.text}")
-                generated_image = None
+                if blueprint:
+                    st.markdown('<div class="section-header" style="margin-top:1.5rem">Technical Blueprint</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="description-box">{format_description(blueprint)}</div>', unsafe_allow_html=True)
 
-    if description and generated_image:
-        st.markdown('<hr class="divider">', unsafe_allow_html=True)
-        st.markdown('<p class="section-header">Export</p>', unsafe_allow_html=True)
-        pdf_path = generate_pdf(full_prompt, description, specs, generated_image)
-        with open(pdf_path, "rb") as f:
-            st.download_button(
-                label="Download PDF Report",
-                data=f,
-                file_name="automotive_concept.pdf",
-                mime="application/pdf"
-            )
+                if engineering:
+                    st.markdown('<div class="section-header" style="margin-top:1.5rem">Engineering Notes</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="description-box">{format_description(engineering)}</div>', unsafe_allow_html=True)
+
+                tags = [prompt[:30]]
+                tag_html = "".join([f'<span class="badge">{t}</span>' for t in tags])
+                st.markdown(f'<div style="margin-top:1rem">{tag_html}</div>', unsafe_allow_html=True)
+
+        if description and generated_image:
+            st.markdown("<hr>", unsafe_allow_html=True)
+            col_x, col_y, col_z = st.columns([1, 2, 1])
+            with col_y:
+                pdf_path = generate_pdf(prompt, description, blueprint, engineering, specs, generated_image)
+                with open(pdf_path, "rb") as f:
+                    st.download_button(
+                        label="DOWNLOAD PDF REPORT",
+                        data=f,
+                        file_name="automotive_concept.pdf",
+                        mime="application/pdf"
+                    )
