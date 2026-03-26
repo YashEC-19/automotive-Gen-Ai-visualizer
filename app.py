@@ -140,9 +140,55 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color:
 .image-frame { border: 1px solid #1e1e3a; border-radius: 16px; overflow: hidden; }
 hr { border: none; border-top: 1px solid #1e1e3a; margin: 2rem 0; }
 
+/* Refinement Panel */
+.refine-panel {
+    background: #0a0a1f;
+    border: 1px solid #1e1e3a;
+    border-radius: 18px;
+    padding: 1.4rem;
+    margin-top: 1.2rem;
+}
+.refine-title {
+    font-size: 0.68rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #f472b6, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e1e3a;
+}
+.refine-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #444;
+    margin-bottom: 0.4rem;
+    margin-top: 0.8rem;
+}
+.refine-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 0.5rem;
+}
+.refine-chip {
+    font-size: 0.7rem;
+    color: #38bdf8;
+    border: 1px solid #1a3a4a;
+    border-radius: 20px;
+    padding: 4px 12px;
+    background: #050d14;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+}
+
 div[data-testid="stTextInput"] > div > div > input {
     background-color: #0f0f24 !important;
-    div[data-testid="stTextInput"] > div > div > div {
+}
+div[data-testid="stTextInput"] > div > div > div {
     display: none !important;
 }
 div[data-testid="stTextInput"] > div > div {
@@ -185,9 +231,21 @@ p[class*="instructions"] { display: none !important; }
     width: 100% !important;
 }
 .stButton > button:hover { opacity: 0.9 !important; }
+
+/* Selectbox and slider dark styling */
+div[data-testid="stSelectbox"] > div > div {
+    background-color: #0f0f24 !important;
+    border: 1px solid #1e1e3a !important;
+    color: #ccc !important;
+    border-radius: 10px !important;
+}
+.stSlider > div > div > div > div {
+    background: linear-gradient(135deg, #38bdf8, #f472b6) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
+# ── Hero ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="hero">
     <img class="hero-img" src="https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=800&q=80"/>
@@ -222,6 +280,8 @@ with col_y:
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 def stars(n):
     try:
         return "★" * int(n) + "☆" * (5 - int(n))
@@ -245,6 +305,45 @@ def format_description(text):
         elif line:
             items += f"<li>{line}</li>"
     return f"<ul>{items}</ul>" if items else f"<p>{text}</p>"
+
+def build_image_prompt(base_prompt, color=None, style=None, time_of_day=None, background=None, mood=None, extra=None):
+    """Build an enriched image prompt from base + refinement options."""
+    parts = [base_prompt]
+    if color and color != "Original":
+        parts.append(f"{color.lower()} color")
+    if style and style != "Original":
+        parts.append(style.lower())
+    if time_of_day and time_of_day != "Original":
+        parts.append(f"{time_of_day.lower()} lighting")
+    if background and background != "Original":
+        parts.append(f"{background.lower()} background")
+    if mood and mood != "Original":
+        parts.append(f"{mood.lower()} mood")
+    if extra and extra.strip():
+        parts.append(extra.strip())
+    refined = ", ".join(parts)
+    return (
+        f"RAW photo, {refined}, "
+        f"automotive photography, shot on Canon EOS R5, 85mm lens, "
+        f"natural lighting, real car, hyperrealistic, photographic, "
+        f"8k uhd, dslr, high quality, film grain, Fujifilm XT3, "
+        f"sharp focus, realistic skin texture, no CGI, no illustration"
+    )
+
+def call_hf_image(image_prompt):
+    """Call HuggingFace SDXL and return PIL Image or None."""
+    hf_response = requests.post(
+        "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0",
+        headers={"Authorization": f"Bearer {HF_API_KEY}"},
+        json={"inputs": image_prompt, "wait_for_model": True},
+        timeout=120
+    )
+    if hf_response.status_code == 200:
+        try:
+            return Image.open(BytesIO(hf_response.content))
+        except Exception:
+            return None
+    return None
 
 def generate_pdf(prompt, description, blueprint, engineering, specs, image):
     pdf = FPDF()
@@ -294,44 +393,91 @@ def generate_pdf(prompt, description, blueprint, engineering, specs, image):
         pdf.output(tmp_pdf.name)
         return tmp_pdf.name
 
+
+# ── Session state init ────────────────────────────────────────────────────────
+for key in ["generated_image", "description", "blueprint", "engineering", "specs",
+            "base_prompt", "ratings", "show_refine", "current_image_prompt", "chat_history"]:
+    if key not in st.session_state:
+        st.session_state[key] = None
+
+if "show_refine" not in st.session_state:
+    st.session_state.show_refine = False
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+
+# ── Chat-based prompt refinement via Groq ─────────────────────────────────────
+def refine_prompt_via_chat(original_prompt, current_image_prompt, chat_history, user_message):
+    """Ask LLaMA to intelligently update the image prompt based on user's chat message."""
+    history_text = ""
+    if chat_history:
+        history_text = "\n".join([
+            f"User: {m['user']}\nUpdated prompt: {m['refined_prompt']}"
+            for m in chat_history[-5:]  # last 5 turns for context
+        ])
+
+    system_msg = """You are an expert automotive image prompt engineer.
+You are given:
+1. The original car concept from the user
+2. The current image generation prompt being used
+3. The conversation history of refinements so far
+4. A new refinement request from the user
+
+Your job is to return ONLY an updated image generation prompt string — no explanation, no JSON, no markdown, just the raw prompt text.
+
+Rules:
+- Always keep: "RAW photo, automotive photography, shot on Canon EOS R5, 85mm lens, natural lighting, real car, hyperrealistic, photographic, 8k uhd, dslr, high quality, film grain, Fujifilm XT3, sharp focus, realistic skin texture, no CGI, no illustration"
+- Intelligently apply the user's change (colour, style, mood, setting, details)
+- Build on ALL previous refinements, don't reset them
+- Keep the core car concept intact"""
+
+    user_content = f"""Original car concept: {original_prompt}
+
+Current image prompt: {current_image_prompt}
+
+Previous refinements:
+{history_text if history_text else "None yet"}
+
+New user request: {user_message}
+
+Return ONLY the updated prompt string."""
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_content}
+        ],
+        temperature=0.7,
+        max_tokens=300
+    )
+    return response.choices[0].message.content.strip()
+
+
+# ── Initial Generation ────────────────────────────────────────────────────────
 if generate:
     if not prompt:
         st.warning("Please type your car concept in the search bar above!")
     else:
-        generated_image = None
-        description = ""
-        blueprint = ""
-        engineering = ""
-        specs = {}
+        st.session_state.base_prompt = prompt
+        st.session_state.show_refine = False
+        st.session_state.chat_history = []
+        st.session_state.current_image_prompt = build_image_prompt(prompt)
 
         col_left, col_right = st.columns([1, 1], gap="large")
 
         with col_right:
             st.markdown('<div class="section-header">Visual Concept</div>', unsafe_allow_html=True)
             with st.spinner("Rendering visual..."):
-                image_prompt = (
-                    f"RAW photo, {prompt}, "
-                    f"automotive photography, shot on Canon EOS R5, 85mm lens, "
-                    f"natural lighting, real car, hyperrealistic, photographic, "
-                    f"8k uhd, dslr, high quality, film grain, Fujifilm XT3, "
-                    f"sharp focus, realistic skin texture, no CGI, no illustration"
-                )
-                hf_response = requests.post(
-                    "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0",
-                    headers={"Authorization": f"Bearer {HF_API_KEY}"},
-                    json={"inputs": image_prompt, "wait_for_model": True},
-                    timeout=120
-                )
-                if hf_response.status_code == 200:
-                    try:
-                        generated_image = Image.open(BytesIO(hf_response.content))
-                        st.markdown('<div class="image-frame">', unsafe_allow_html=True)
-                        st.image(generated_image, use_container_width=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    except Exception as e:
-                        st.error(f"Could not load image: {e}")
+                img = call_hf_image(st.session_state.current_image_prompt)
+                if img:
+                    st.session_state.generated_image = img
+                    st.markdown('<div class="image-frame">', unsafe_allow_html=True)
+                    st.image(img, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    st.session_state.show_refine = True
                 else:
-                    st.error(f"Image generation failed: {hf_response.text}")
+                    st.error("Image generation failed. Please try again.")
 
         with col_left:
             st.markdown('<div class="section-header">AI Description</div>', unsafe_allow_html=True)
@@ -360,7 +506,6 @@ When given a car concept, you MUST respond ONLY with a valid JSON object. No ext
   "target_audience": "specific description e.g. Ultra-high-net-worth performance enthusiasts aged 35-55"
 }"""
 
-
                 response = groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
@@ -378,13 +523,10 @@ When given a car concept, you MUST respond ONLY with a valid JSON object. No ext
                 except:
                     data = {"description": raw}
 
-                description = data.get("description", "")
-                blueprint = data.get("blueprint", "")
-                engineering = data.get("engineering", "")
-
-                st.markdown(f'<div class="description-box">{format_description(description)}</div>', unsafe_allow_html=True)
-
-                specs = {
+                st.session_state.description = data.get("description", "")
+                st.session_state.blueprint = data.get("blueprint", "")
+                st.session_state.engineering = data.get("engineering", "")
+                st.session_state.specs = {
                     "Top Speed": data.get("top_speed", "N/A"),
                     "0-100 km/h": data.get("acceleration", "N/A"),
                     "Range": data.get("range", "N/A"),
@@ -394,49 +536,176 @@ When given a car concept, you MUST respond ONLY with a valid JSON object. No ext
                     "Dimensions": data.get("dimensions", "N/A"),
                     "Price": data.get("price_estimate", "N/A"),
                 }
-
-                st.markdown('<div class="section-header" style="margin-top:1.5rem">Specifications</div>', unsafe_allow_html=True)
-                spec_html = "".join([
-                    f'<div class="spec-item"><div class="spec-label">{k}</div><div class="spec-value">{v}</div></div>'
-                    for k, v in specs.items()
-                ])
-                st.markdown(f'<div class="spec-grid">{spec_html}</div>', unsafe_allow_html=True)
-
-                ratings = {
+                st.session_state.ratings = {
                     "Performance": data.get("performance_rating", 4),
                     "Design": data.get("design_rating", 4),
                     "Technology": data.get("tech_rating", 4),
                     "Comfort": data.get("comfort_rating", 3),
                     "Value": data.get("value_rating", 3),
                 }
+
+                st.markdown(f'<div class="description-box">{format_description(st.session_state.description)}</div>', unsafe_allow_html=True)
+
+                st.markdown('<div class="section-header" style="margin-top:1.5rem">Specifications</div>', unsafe_allow_html=True)
+                spec_html = "".join([
+                    f'<div class="spec-item"><div class="spec-label">{k}</div><div class="spec-value">{v}</div></div>'
+                    for k, v in st.session_state.specs.items()
+                ])
+                st.markdown(f'<div class="spec-grid">{spec_html}</div>', unsafe_allow_html=True)
+
                 st.markdown('<div class="section-header" style="margin-top:1.5rem">Ratings</div>', unsafe_allow_html=True)
                 rating_html = "".join([
                     f'<div class="rating-row"><span class="rating-label">{k}</span><span class="stars">{stars(v)}</span></div>'
-                    for k, v in ratings.items()
+                    for k, v in st.session_state.ratings.items()
                 ])
                 st.markdown(f'<div class="description-box" style="padding:0.5rem 1rem">{rating_html}</div>', unsafe_allow_html=True)
 
-                if blueprint:
+                if st.session_state.blueprint:
                     st.markdown('<div class="section-header" style="margin-top:1.5rem">Technical Blueprint</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="description-box">{format_description(blueprint)}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="description-box">{format_description(st.session_state.blueprint)}</div>', unsafe_allow_html=True)
 
-                if engineering:
+                if st.session_state.engineering:
                     st.markdown('<div class="section-header" style="margin-top:1.5rem">Engineering Notes</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="description-box">{format_description(engineering)}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="description-box">{format_description(st.session_state.engineering)}</div>', unsafe_allow_html=True)
 
                 tags = [prompt[:30]]
                 tag_html = "".join([f'<span class="badge">{t}</span>' for t in tags])
                 st.markdown(f'<div style="margin-top:1rem">{tag_html}</div>', unsafe_allow_html=True)
 
-        if description and generated_image:
-            st.markdown("<hr>", unsafe_allow_html=True)
-            col_x, col_y, col_z = st.columns([1, 2, 1])
-            with col_y:
-                pdf_path = generate_pdf(prompt, description, blueprint, engineering, specs, generated_image)
-                with open(pdf_path, "rb") as f:
-                    st.download_button(
-                        label="DOWNLOAD PDF REPORT",
-                        data=f,
-                        file_name="automotive_concept.pdf",
-                        mime="application/pdf"
-                    )
+
+# ── Persistent result display (after generation, on re-renders) ───────────────
+if st.session_state.generated_image and not generate:
+    col_left, col_right = st.columns([1, 1], gap="large")
+
+    with col_right:
+        st.markdown('<div class="section-header">Visual Concept</div>', unsafe_allow_html=True)
+        st.markdown('<div class="image-frame">', unsafe_allow_html=True)
+        st.image(st.session_state.generated_image, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_left:
+        if st.session_state.description:
+            st.markdown('<div class="section-header">AI Description</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="description-box">{format_description(st.session_state.description)}</div>', unsafe_allow_html=True)
+        if st.session_state.specs:
+            st.markdown('<div class="section-header" style="margin-top:1.5rem">Specifications</div>', unsafe_allow_html=True)
+            spec_html = "".join([
+                f'<div class="spec-item"><div class="spec-label">{k}</div><div class="spec-value">{v}</div></div>'
+                for k, v in st.session_state.specs.items()
+            ])
+            st.markdown(f'<div class="spec-grid">{spec_html}</div>', unsafe_allow_html=True)
+        if st.session_state.ratings:
+            st.markdown('<div class="section-header" style="margin-top:1.5rem">Ratings</div>', unsafe_allow_html=True)
+            rating_html = "".join([
+                f'<div class="rating-row"><span class="rating-label">{k}</span><span class="stars">{stars(v)}</span></div>'
+                for k, v in st.session_state.ratings.items()
+            ])
+            st.markdown(f'<div class="description-box" style="padding:0.5rem 1rem">{rating_html}</div>', unsafe_allow_html=True)
+        if st.session_state.blueprint:
+            st.markdown('<div class="section-header" style="margin-top:1.5rem">Technical Blueprint</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="description-box">{format_description(st.session_state.blueprint)}</div>', unsafe_allow_html=True)
+        if st.session_state.engineering:
+            st.markdown('<div class="section-header" style="margin-top:1.5rem">Engineering Notes</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="description-box">{format_description(st.session_state.engineering)}</div>', unsafe_allow_html=True)
+
+
+# ── Chat Refinement Window ────────────────────────────────────────────────────
+if st.session_state.show_refine and st.session_state.generated_image:
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown('<div class="section-header">💬 Refine Your Visual</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<p style="color:#444; font-size:0.8rem; margin-bottom:1rem;">'
+        'Chat to update the image — specs stay the same. '
+        'Try: <em>"make it more aggressive"</em>, <em>"change to red"</em>, <em>"put it on a racetrack at night"</em>'
+        '</p>',
+        unsafe_allow_html=True
+    )
+
+    chat_col, img_col = st.columns([1, 1], gap="large")
+
+    with chat_col:
+        # Display chat history
+        if st.session_state.chat_history:
+            for turn in st.session_state.chat_history:
+                st.markdown(
+                    f'<div style="background:#0f0f24; border:1px solid #1e1e3a; border-radius:12px; '
+                    f'padding:10px 14px; margin-bottom:8px;">'
+                    f'<div style="font-size:0.7rem; color:#38bdf8; text-transform:uppercase; '
+                    f'letter-spacing:1px; margin-bottom:4px;">You</div>'
+                    f'<div style="color:#ccc; font-size:0.88rem;">{turn["user"]}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+                st.markdown(
+                    f'<div style="background:#050510; border:1px solid #1a1a30; border-radius:12px; '
+                    f'padding:10px 14px; margin-bottom:12px;">'
+                    f'<div style="font-size:0.7rem; color:#f472b6; text-transform:uppercase; '
+                    f'letter-spacing:1px; margin-bottom:4px;">AI Applied</div>'
+                    f'<div style="color:#666; font-size:0.8rem; font-style:italic;">✓ Image updated</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+        # Chat input
+        chat_input = st.text_input(
+            "chat",
+            placeholder='e.g. "make it black", "add a spoiler", "put it on a mountain road at sunset"',
+            label_visibility="collapsed",
+            key="chat_input"
+        )
+        send_btn = st.button("✦ Apply", key="chat_send")
+
+        if send_btn and chat_input and chat_input.strip():
+            with st.spinner("Understanding your request..."):
+                refined_prompt = refine_prompt_via_chat(
+                    st.session_state.base_prompt,
+                    st.session_state.current_image_prompt,
+                    st.session_state.chat_history,
+                    chat_input.strip()
+                )
+            with img_col:
+                st.markdown('<div class="section-header">Updated Visual</div>', unsafe_allow_html=True)
+                with st.spinner("Re-rendering..."):
+                    new_img = call_hf_image(refined_prompt)
+                    if new_img:
+                        st.session_state.generated_image = new_img
+                        st.session_state.current_image_prompt = refined_prompt
+                        st.session_state.chat_history.append({
+                            "user": chat_input.strip(),
+                            "refined_prompt": refined_prompt
+                        })
+                        st.markdown('<div class="image-frame">', unsafe_allow_html=True)
+                        st.image(new_img, use_container_width=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        st.success("✓ Image updated — specs unchanged")
+                    else:
+                        st.error("Refinement failed. Please try again.")
+        else:
+            with img_col:
+                if st.session_state.generated_image:
+                    st.markdown('<div class="section-header">Current Visual</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="image-frame">', unsafe_allow_html=True)
+                    st.image(st.session_state.generated_image, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ── PDF Download ──────────────────────────────────────────────────────────────
+if st.session_state.description and st.session_state.generated_image:
+    st.markdown("<hr>", unsafe_allow_html=True)
+    col_x, col_y, col_z = st.columns([1, 2, 1])
+    with col_y:
+        pdf_path = generate_pdf(
+            st.session_state.base_prompt or "",
+            st.session_state.description,
+            st.session_state.blueprint,
+            st.session_state.engineering,
+            st.session_state.specs,
+            st.session_state.generated_image
+        )
+        with open(pdf_path, "rb") as f:
+            st.download_button(
+                label="DOWNLOAD PDF REPORT",
+                data=f,
+                file_name="automotive_concept.pdf",
+                mime="application/pdf"
+            )
